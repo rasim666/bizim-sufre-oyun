@@ -1,0 +1,703 @@
+<!DOCTYPE html>
+<html lang="az">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Bizim Sufre — Ketchup Oyunu</title>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka+One&family=Nunito:wght@400;700;800&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Nunito', sans-serif;
+    background: #1a0000;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    overflow: hidden;
+  }
+
+  /* Animated background dots */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background:
+      radial-gradient(circle at 20% 20%, rgba(229,57,53,0.15) 0%, transparent 50%),
+      radial-gradient(circle at 80% 80%, rgba(183,28,28,0.2) 0%, transparent 50%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  #game-container {
+    position: relative;
+    z-index: 1;
+    width: min(480px, 100vw);
+    height: min(720px, 100vh);
+    background: linear-gradient(180deg, #fff5e0 0%, #ffe0b2 60%, #ffccbc 100%);
+    border-radius: 24px;
+    overflow: hidden;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.6), 0 0 0 3px #E53935;
+  }
+
+  /* ── HEADER ── */
+  #header {
+    background: linear-gradient(90deg, #E53935, #C62828);
+    padding: 10px 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: relative;
+    z-index: 10;
+  }
+
+  #header-logo {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  #header-logo .logo-text {
+    font-family: 'Fredoka One', cursive;
+    color: white;
+    font-size: 18px;
+    line-height: 1.1;
+  }
+
+  #header-logo .logo-sub {
+    font-size: 11px;
+    color: rgba(255,255,255,0.8);
+    font-weight: 700;
+    letter-spacing: 1px;
+  }
+
+  #hud {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  #score-badge {
+    background: white;
+    border-radius: 20px;
+    padding: 4px 12px;
+    font-size: 13px;
+    font-weight: 800;
+    color: #C62828;
+  }
+
+  #lives-display {
+    font-size: 16px;
+    letter-spacing: 1px;
+  }
+
+  /* ── CANVAS ── */
+  #canvas-wrap {
+    position: relative;
+    width: 100%;
+    height: calc(100% - 56px);
+  }
+
+  #game-canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+  }
+
+  /* ── SCREENS ── */
+  .screen {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    transition: opacity 0.3s;
+  }
+
+  .screen.hidden { display: none; }
+
+  #start-screen {
+    background: rgba(255,248,225,0.96);
+  }
+
+  #gameover-screen {
+    background: rgba(255,248,225,0.97);
+  }
+
+  .screen-mascot {
+    width: 110px;
+    height: 110px;
+    background: linear-gradient(135deg, #E53935, #B71C1C);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 56px;
+    margin-bottom: 16px;
+    box-shadow: 0 8px 24px rgba(229,57,53,0.4);
+    animation: bounce 2s infinite;
+  }
+
+  @keyframes bounce {
+    0%, 100% { transform: translateY(0) scale(1); }
+    50% { transform: translateY(-8px) scale(1.05); }
+  }
+
+  .screen-title {
+    font-family: 'Fredoka One', cursive;
+    font-size: 32px;
+    color: #E53935;
+    margin-bottom: 8px;
+    text-align: center;
+  }
+
+  .screen-sub {
+    font-size: 14px;
+    color: #888;
+    text-align: center;
+    max-width: 280px;
+    line-height: 1.5;
+    margin-bottom: 20px;
+  }
+
+  .instructions {
+    background: white;
+    border-radius: 16px;
+    padding: 14px 20px;
+    margin-bottom: 22px;
+    width: 100%;
+    max-width: 300px;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+  }
+
+  .instr-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 6px 0;
+    font-size: 14px;
+    font-weight: 700;
+    color: #333;
+    border-bottom: 1px solid #f0f0f0;
+  }
+
+  .instr-row:last-child { border-bottom: none; }
+
+  .instr-icon {
+    font-size: 22px;
+    width: 32px;
+    text-align: center;
+  }
+
+  .instr-plus { color: #2E7D32; font-weight: 800; }
+  .instr-minus { color: #C62828; font-weight: 800; }
+
+  .play-btn {
+    background: linear-gradient(135deg, #E53935, #C62828);
+    color: white;
+    font-family: 'Fredoka One', cursive;
+    font-size: 22px;
+    border: none;
+    border-radius: 50px;
+    padding: 14px 48px;
+    cursor: pointer;
+    box-shadow: 0 6px 0 #8B0000, 0 8px 20px rgba(229,57,53,0.4);
+    transition: transform 0.1s, box-shadow 0.1s;
+    letter-spacing: 1px;
+  }
+
+  .play-btn:active {
+    transform: translateY(4px);
+    box-shadow: 0 2px 0 #8B0000, 0 4px 12px rgba(229,57,53,0.3);
+  }
+
+  /* Score display on game over */
+  .score-display {
+    background: linear-gradient(135deg, #E53935, #C62828);
+    color: white;
+    border-radius: 20px;
+    padding: 16px 32px;
+    text-align: center;
+    margin-bottom: 20px;
+    box-shadow: 0 8px 24px rgba(229,57,53,0.3);
+  }
+
+  .score-display .score-label {
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    opacity: 0.85;
+    text-transform: uppercase;
+  }
+
+  .score-display .score-number {
+    font-family: 'Fredoka One', cursive;
+    font-size: 52px;
+    line-height: 1;
+    margin: 4px 0;
+  }
+
+  .score-display .score-msg {
+    font-size: 14px;
+    opacity: 0.9;
+  }
+
+  .highscore-row {
+    font-size: 13px;
+    color: #999;
+    margin-bottom: 18px;
+  }
+
+  /* ── LEVEL FLASH ── */
+  #level-flash {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%) scale(0);
+    background: rgba(229,57,53,0.92);
+    color: white;
+    font-family: 'Fredoka One', cursive;
+    font-size: 28px;
+    padding: 14px 32px;
+    border-radius: 16px;
+    pointer-events: none;
+    z-index: 20;
+    transition: transform 0.2s, opacity 0.3s;
+    opacity: 0;
+  }
+
+  #level-flash.show {
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 1;
+  }
+
+  /* ── RESPONSIVE ── */
+  @media (max-width: 480px) {
+    #game-container {
+      border-radius: 0;
+      box-shadow: none;
+      width: 100vw;
+      height: 100vh;
+    }
+  }
+</style>
+</head>
+<body>
+
+<div id="game-container">
+  <!-- Header -->
+  <div id="header">
+    <div id="header-logo">
+      <div>
+        <div class="logo-text">Bizim Sufre</div>
+        <div class="logo-sub">KETCHUP OYUNU</div>
+      </div>
+    </div>
+    <div id="hud">
+      <div id="score-badge">Xal: <span id="score-val">0</span></div>
+      <div id="lives-display">❤️❤️❤️</div>
+    </div>
+  </div>
+
+  <!-- Canvas area -->
+  <div id="canvas-wrap">
+    <canvas id="game-canvas"></canvas>
+    <div id="level-flash">🔥 Sürət Artdı!</div>
+
+    <!-- Start screen -->
+    <div class="screen" id="start-screen">
+      <div class="screen-mascot">🍅</div>
+      <div class="screen-title">Ketchup Tut!</div>
+      <div class="screen-sub">Düşən ketchup şüşələrini tut, xal qazan. Pomidorları tutma!</div>
+      <div class="instructions">
+        <div class="instr-row">
+          <span class="instr-icon">🍾</span>
+          <span>Ketchup şüşəsi <span class="instr-plus">+1 xal</span></span>
+        </div>
+        <div class="instr-row">
+          <span class="instr-icon">🍅</span>
+          <span>Pomidor <span class="instr-minus">-1 ürək</span></span>
+        </div>
+        <div class="instr-row">
+          <span class="instr-icon">💨</span>
+          <span>Ketchup düşsə <span class="instr-minus">-1 ürək</span></span>
+        </div>
+      </div>
+      <button class="play-btn" onclick="startGame()">🎮 Oyna!</button>
+    </div>
+
+    <!-- Game over screen -->
+    <div class="screen hidden" id="gameover-screen">
+      <div class="screen-mascot" id="go-emoji">😢</div>
+      <div class="screen-title" id="go-title">Oyun Bitdi!</div>
+      <div class="score-display">
+        <div class="score-label">Xalın</div>
+        <div class="score-number" id="final-score">0</div>
+        <div class="score-msg" id="final-msg">Bir daha cəhd et!</div>
+      </div>
+      <div class="highscore-row" id="highscore-row">Rekord: <strong id="hs-val">0</strong></div>
+      <button class="play-btn" onclick="startGame()">🔄 Yenidən</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const canvas = document.getElementById('game-canvas');
+const ctx = canvas.getContext('2d');
+const scoreEl = document.getElementById('score-val');
+const livesEl = document.getElementById('lives-display');
+const startScreen = document.getElementById('start-screen');
+const gameoverScreen = document.getElementById('gameover-screen');
+const finalScoreEl = document.getElementById('final-score');
+const finalMsgEl = document.getElementById('final-msg');
+const goEmoji = document.getElementById('go-emoji');
+const goTitle = document.getElementById('go-title');
+const hsVal = document.getElementById('hs-val');
+const levelFlash = document.getElementById('level-flash');
+
+let W, H, basket, items, score, lives, raf, baseSpeed, spawnInterval, spawnTimer, running, frame, highscore, lastLevel;
+
+function resize() {
+  const wrap = document.getElementById('canvas-wrap');
+  W = canvas.width = wrap.clientWidth;
+  H = canvas.height = wrap.clientHeight;
+  if (basket) {
+    basket.x = Math.min(Math.max(basket.x, basket.w / 2), W - basket.w / 2);
+    basket.y = H - 50;
+  }
+}
+
+resize();
+window.addEventListener('resize', () => { resize(); });
+
+highscore = parseInt(localStorage.getItem('bs_hs') || '0');
+hsVal.textContent = highscore;
+
+function initGame() {
+  basket = { x: W / 2, y: H - 50, w: 90, h: 32 };
+  items = [];
+  score = 0;
+  lives = 3;
+  baseSpeed = 2.4;
+  spawnInterval = 80;
+  spawnTimer = 0;
+  frame = 0;
+  lastLevel = 0;
+  updateHUD();
+}
+
+function updateHUD() {
+  scoreEl.textContent = score;
+  const hearts = Math.max(lives, 0);
+  livesEl.textContent = '❤️'.repeat(hearts) + '🖤'.repeat(3 - hearts);
+}
+
+function spawnItem() {
+  const r = Math.random();
+  let type, emoji, pts, size;
+  if (r < 0.55) {
+    type = 'ketchup'; emoji = '🍾'; pts = 1; size = 32;
+  } else if (r < 0.80) {
+    type = 'tomato'; emoji = '🍅'; pts = -1; size = 30;
+  } else if (r < 0.93) {
+    type = 'ketchup'; emoji = '🍶'; pts = 2; size = 28;
+  } else {
+    type = 'star'; emoji = '⭐'; pts = 3; size = 28;
+  }
+
+  const speed = baseSpeed + Math.random() * 1.5;
+  const x = size + Math.random() * (W - size * 2);
+  items.push({ x, y: -size, type, emoji, pts, size, vy: speed, wobble: Math.random() * Math.PI * 2 });
+}
+
+// Particle effects
+let particles = [];
+function addParticles(x, y, color, count = 6) {
+  for (let i = 0; i < count; i++) {
+    const angle = (Math.PI * 2 / count) * i + Math.random() * 0.5;
+    particles.push({
+      x, y,
+      vx: Math.cos(angle) * (2 + Math.random() * 3),
+      vy: Math.sin(angle) * (2 + Math.random() * 3) - 2,
+      life: 30,
+      maxLife: 30,
+      color,
+      r: 3 + Math.random() * 4
+    });
+  }
+}
+
+// Floating score texts
+let floaters = [];
+function addFloater(x, y, text, color) {
+  floaters.push({ x, y, text, color, life: 45, maxLife: 45 });
+}
+
+function drawBasket(bx, by, bw, bh) {
+  ctx.save();
+
+  // Shadow
+  ctx.shadowColor = 'rgba(0,0,0,0.25)';
+  ctx.shadowBlur = 10;
+  ctx.shadowOffsetY = 4;
+
+  // Body
+  const grad = ctx.createLinearGradient(bx - bw/2, by - bh/2, bx - bw/2, by + bh/2);
+  grad.addColorStop(0, '#E53935');
+  grad.addColorStop(1, '#B71C1C');
+  ctx.fillStyle = grad;
+  ctx.beginPath();
+  ctx.roundRect(bx - bw/2, by - bh/2, bw, bh, 12);
+  ctx.fill();
+
+  ctx.shadowColor = 'transparent';
+
+  // Logo text
+  ctx.font = 'bold 11px Nunito, sans-serif';
+  ctx.fillStyle = 'rgba(255,255,255,0.95)';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('Bizim Sufre', bx, by);
+
+  // Shine
+  ctx.fillStyle = 'rgba(255,255,255,0.15)';
+  ctx.beginPath();
+  ctx.roundRect(bx - bw/2 + 4, by - bh/2 + 3, bw - 8, bh/2 - 4, 8);
+  ctx.fill();
+
+  ctx.restore();
+}
+
+function drawItem(item, t) {
+  ctx.save();
+  const wobbleX = Math.sin(t * 0.05 + item.wobble) * 1.5;
+  ctx.font = item.size + 'px serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  // Slight rotation wobble
+  ctx.translate(item.x + wobbleX, item.y);
+  ctx.rotate(Math.sin(t * 0.04 + item.wobble) * 0.15);
+  ctx.fillText(item.emoji, 0, 0);
+  ctx.restore();
+}
+
+function drawBackground() {
+  // Soft ground line
+  ctx.strokeStyle = 'rgba(180,120,80,0.2)';
+  ctx.lineWidth = 2;
+  ctx.setLineDash([8, 12]);
+  ctx.beginPath();
+  ctx.moveTo(0, H - 18);
+  ctx.lineTo(W, H - 18);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  // Decorative dots
+  ctx.fillStyle = 'rgba(229,57,53,0.08)';
+  for (let i = 0; i < 5; i++) {
+    const size = 20 + i * 15;
+    const cx = (W / 5) * i + W / 10;
+    ctx.beginPath();
+    ctx.arc(cx, H - 10, size, 0, Math.PI * 2);
+    ctx.fill();
+  }
+}
+
+function gameLoop() {
+  if (!running) return;
+  frame++;
+  ctx.clearRect(0, 0, W, H);
+  drawBackground();
+
+  // Level up check
+  const level = Math.floor(score / 8);
+  if (level > lastLevel) {
+    lastLevel = level;
+    baseSpeed = 2.4 + level * 0.4;
+    spawnInterval = Math.max(35, 80 - level * 6);
+    showLevelFlash();
+  }
+
+  // Spawn
+  spawnTimer++;
+  if (spawnTimer >= spawnInterval) {
+    spawnItem();
+    spawnTimer = 0;
+  }
+
+  // Update & draw items
+  for (let i = items.length - 1; i >= 0; i--) {
+    const it = items[i];
+    it.y += it.vy;
+    drawItem(it, frame);
+
+    const halfW = basket.w / 2 + 4;
+    const halfH = basket.h / 2 + 4;
+
+    // Catch check
+    if (
+      it.y + it.size / 2 > basket.y - halfH &&
+      it.y - it.size / 2 < basket.y + halfH &&
+      it.x > basket.x - halfW &&
+      it.x < basket.x + halfW
+    ) {
+      items.splice(i, 1);
+      if (it.type === 'tomato') {
+        lives--;
+        addParticles(it.x, basket.y, '#E53935');
+        addFloater(it.x, basket.y - 20, '-1 ❤️', '#C62828');
+        shakeBasket();
+        if (lives <= 0) { endGame(); return; }
+      } else {
+        score += it.pts;
+        const color = it.pts >= 3 ? '#FFC107' : it.pts >= 2 ? '#FF9800' : '#4CAF50';
+        addParticles(it.x, basket.y, color);
+        addFloater(it.x, basket.y - 20, '+' + it.pts, color);
+      }
+      updateHUD();
+      continue;
+    }
+
+    // Miss check (ketchup fell)
+    if (it.y - it.size > H) {
+      items.splice(i, 1);
+      if (it.type !== 'tomato') {
+        lives--;
+        addFloater(it.x, H - 30, 'Miss!', '#E53935');
+        if (lives <= 0) { endGame(); return; }
+        updateHUD();
+      }
+    }
+  }
+
+  // Draw basket with shake
+  const bx = basket.x + (basket.shake || 0);
+  if (basket.shake) {
+    basket.shake *= 0.7;
+    if (Math.abs(basket.shake) < 0.5) basket.shake = 0;
+  }
+  drawBasket(bx, basket.y, basket.w, basket.h);
+
+  // Particles
+  for (let i = particles.length - 1; i >= 0; i--) {
+    const p = particles[i];
+    p.x += p.vx; p.y += p.vy; p.vy += 0.15; p.life--;
+    ctx.globalAlpha = p.life / p.maxLife;
+    ctx.fillStyle = p.color;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.r * (p.life / p.maxLife), 0, Math.PI * 2);
+    ctx.fill();
+    ctx.globalAlpha = 1;
+    if (p.life <= 0) particles.splice(i, 1);
+  }
+
+  // Floaters
+  for (let i = floaters.length - 1; i >= 0; i--) {
+    const f = floaters[i];
+    f.y -= 1.2; f.life--;
+    ctx.globalAlpha = f.life / f.maxLife;
+    ctx.fillStyle = f.color;
+    ctx.font = 'bold 18px Nunito, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(f.text, f.x, f.y);
+    ctx.globalAlpha = 1;
+    if (f.life <= 0) floaters.splice(i, 1);
+  }
+
+  raf = requestAnimationFrame(gameLoop);
+}
+
+let shakeTimeout;
+function shakeBasket() {
+  basket.shake = 10;
+}
+
+let flashTimeout;
+function showLevelFlash() {
+  clearTimeout(flashTimeout);
+  levelFlash.classList.add('show');
+  flashTimeout = setTimeout(() => levelFlash.classList.remove('show'), 1200);
+}
+
+function startGame() {
+  startScreen.classList.add('hidden');
+  gameoverScreen.classList.add('hidden');
+  running = true;
+  particles = [];
+  floaters = [];
+  initGame();
+  cancelAnimationFrame(raf);
+  gameLoop();
+}
+
+function endGame() {
+  running = false;
+  cancelAnimationFrame(raf);
+
+  if (score > highscore) {
+    highscore = score;
+    localStorage.setItem('bs_hs', highscore);
+  }
+  hsVal.textContent = highscore;
+
+  finalScoreEl.textContent = score;
+  if (score >= 30) {
+    goEmoji.textContent = '🏆';
+    goTitle.textContent = 'Əla nəticə!';
+    finalMsgEl.textContent = 'Sən çempionsun! 🎉';
+  } else if (score >= 15) {
+    goEmoji.textContent = '😊';
+    goTitle.textContent = 'Yaxşı oynadın!';
+    finalMsgEl.textContent = 'Bir az daha cəhd et! 👍';
+  } else {
+    goEmoji.textContent = '😢';
+    goTitle.textContent = 'Oyun Bitdi!';
+    finalMsgEl.textContent = 'Bir daha cəhd et! 💪';
+  }
+
+  gameoverScreen.classList.remove('hidden');
+}
+
+// ── CONTROLS ──
+canvas.addEventListener('mousemove', e => {
+  if (!running) return;
+  const rect = canvas.getBoundingClientRect();
+  const scaleX = W / rect.width;
+  basket.x = Math.min(Math.max((e.clientX - rect.left) * scaleX, basket.w / 2), W - basket.w / 2);
+});
+
+canvas.addEventListener('touchmove', e => {
+  e.preventDefault();
+  if (!running) return;
+  const rect = canvas.getBoundingClientRect();
+  const scaleX = W / rect.width;
+  basket.x = Math.min(Math.max((e.touches[0].clientX - rect.left) * scaleX, basket.w / 2), W - basket.w / 2);
+}, { passive: false });
+
+canvas.addEventListener('touchstart', e => {
+  e.preventDefault();
+  if (!running) return;
+  const rect = canvas.getBoundingClientRect();
+  const scaleX = W / rect.width;
+  basket.x = Math.min(Math.max((e.touches[0].clientX - rect.left) * scaleX, basket.w / 2), W - basket.w / 2);
+}, { passive: false });
+
+let keysDown = {};
+document.addEventListener('keydown', e => { keysDown[e.key] = true; });
+document.addEventListener('keyup', e => { keysDown[e.key] = false; });
+
+function keyLoop() {
+  if (running && basket) {
+    if (keysDown['ArrowLeft']) basket.x = Math.max(basket.x - 14, basket.w / 2);
+    if (keysDown['ArrowRight']) basket.x = Math.min(basket.x + 14, W - basket.w / 2);
+  }
+  requestAnimationFrame(keyLoop);
+}
+keyLoop();
+</script>
+</body>
+</html>
